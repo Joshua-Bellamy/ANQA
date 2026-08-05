@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
+from app.core.database import init_db
 from app.routers import chat, upload, voice
 
 app = FastAPI(
@@ -23,6 +24,13 @@ app = FastAPI(
     version=settings.app_version,
     description="Anqa — a multimodal AI assistant with long-term memory.",
 )
+
+
+@app.on_event("startup")
+async def on_startup():
+    # Creates the conversations/messages tables if they don't exist yet.
+    await init_db()
+
 
 app.add_middleware(
     CORSMiddleware,
