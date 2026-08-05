@@ -1,209 +1,91 @@
-# NEURA - Professional AI Chat UI
+# Anqa
 
-A professional, dark-themed HTML and CSS UI design for an advanced AI chat application called **NEURA**. This is a pure frontend design with no JavaScript, backend, or database dependencies.
+A multimodal AI assistant with long-term memory — voice input/output, and
+support for images, videos, PDFs, and general file attachments — built on
+FastAPI and OpenRouter.
 
-## 📁 Files Included
+## Why this architecture
 
-### 1. **index.html** - Landing Page
-The main landing page featuring:
-- Professional hero section with NEURA branding
-- Animated logo with glow and rotation effects
-- Feature highlights (Lightning Fast, Advanced Intelligence, Privacy First)
-- Statistics section (100K+ Users, 99.9% Uptime, 24/7 Support)
-- Professional footer with links
-- Fully responsive design for desktop and mobile
+Most chatbot projects are a single file that calls an LLM API. Anqa is
+built as a real service: every concern (auth, chat orchestration, memory,
+file ingestion, voice) lives in its own module, so the codebase reads like
+production software, not a demo script.
 
-**Access:** Open `index.html` in any web browser
+```
+app/
+  core/
+    config.py      -> all settings, loaded once from environment variables
+    security.py    -> JWT auth
+  models/
+    schemas.py      -> every request/response contract, in one place
+  services/
+    openrouter_client.py  -> the only file that talks to the LLM
+    ingestion.py           -> file storage + PDF text extraction
+    voice.py                -> STT/TTS provider calls
+  memory/
+    store.py        -> long-term vector memory (chromadb)
+  routers/
+    chat.py          -> POST /chat/send (streaming)
+    upload.py         -> POST /upload (images/video/pdf/files)
+    voice.py           -> POST /voice/transcribe, POST /voice/speak
+  main.py            -> app entrypoint, wires everything together
+```
 
-### 2. **chat.html** - Chat Interface
-Full-featured chat interface featuring:
-- Conversation sidebar with history management
-- Professional chat header with user profile
-- Message bubbles (user and AI)
-- Empty state with welcome message
-- Input area with attachment support
-- Responsive design for all screen sizes
-- Mobile-optimized sidebar (collapsible)
+## What makes the memory "powerful"
 
-**Access:** Open `chat.html` in any web browser
+Most chatbot memory is just "resend the last N messages." Anqa instead:
 
-### 3. **mobile.html** - Mobile Optimized Interface
-Mobile-first design featuring:
-- Optimized header for small screens
-- Bottom navigation bar (Chat, History, Settings)
-- Touch-friendly buttons and input
-- Safe area support for notched devices
-- Efficient use of screen space
-- Message bubbles optimized for mobile
+1. Summarizes each exchange and embeds it into a vector store (`app/memory/store.py`)
+2. On every new message, retrieves the most semantically relevant past
+   memories for that user — even from conversations days or weeks old
+3. Injects only the relevant memories into the system prompt, instead of
+   dumping full chat history (keeps token usage low and answers focused)
 
-**Access:** Open `mobile.html` in any web browser or view on mobile device
+This means the assistant can recall something the user mentioned in a
+completely different conversation, without the user having to repeat it.
 
-### 4. **styles.css** - Main Stylesheet
-Comprehensive CSS file containing:
-- CSS variables for dark theme colors
-- Responsive design breakpoints (1024px, 768px, 480px)
-- Animated logo with glow and rotation effects
-- Smooth transitions and animations
-- Professional typography with Inter font
-- Component styles (buttons, cards, messages, etc.)
-- Mobile-optimized scrollbars and interactions
+## Multimodal input
 
-## 🎨 Design Features
+- **Images**: sent to OpenRouter's vision-capable models using the
+  OpenAI-compatible `image_url` content format (`openrouter_client.py`)
+- **PDFs**: text is extracted server-side (`ingestion.py`) and given to
+  the model as context, since most LLMs can't read raw PDF bytes
+- **Video / general files**: stored and referenced by URL; a video
+  frame-extraction + PDF-OCR fallback are natural next additions (see
+  "Next steps" below) — the ingestion module is built so those slot in
+  without touching any router
 
-### Color Palette
-- **Primary Color:** `#5b7fff` (Blue)
-- **Accent Color:** `#00d9ff` (Cyan)
-- **Background Dark:** `#0a0e27` (Deep Navy)
-- **Background Card:** `#1a1f3a` (Dark Blue)
-- **Text Primary:** `#e8eef7` (Light Gray)
-- **Text Secondary:** `#a0aec0` (Medium Gray)
+## Voice
 
-### Typography
-- **Font Family:** Inter (from Google Fonts)
-- **Weights:** 400, 500, 600, 700, 800
-- **Responsive sizes:** Scales from 1.5rem on mobile to 3.5rem on desktop
+STT (speech-to-text) and TTS (text-to-speech) are isolated in
+`app/services/voice.py` behind a simple interface, so the app runs fully
+without voice configured, and voice can be swapped to a different
+provider by editing one file.
 
-### Animations
-- **Logo Glow:** Pulsing glow effect with color transition
-- **Logo Rotate:** Subtle rotating border animation
-- **Message Slide:** Messages slide in smoothly
-- **Button Hover:** Lift effect on hover with shadow
-- **Button Press:** Scale effect on click
-
-## 📱 Responsive Breakpoints
-
-The design is fully responsive with optimized layouts for:
-
-- **Desktop (1024px+):** Full sidebar, multi-column layouts
-- **Tablet (768px - 1024px):** Adjusted spacing and font sizes
-- **Mobile (480px - 768px):** Collapsible sidebar, single column
-- **Small Mobile (<480px):** Optimized for compact screens
-
-## 🚀 How to Use
-
-### Option 1: Local Development
-1. Clone or download all files to a folder
-2. Open `index.html` in your web browser for the landing page
-3. Open `chat.html` for the chat interface
-4. Open `mobile.html` for the mobile view
-5. All styling is contained in `styles.css`
-
-### Option 2: Web Server
-For best results, serve files through a local web server:
+## Running locally
 
 ```bash
-# Using Python 3
-python -m http.server 8000
-
-# Using Node.js (with http-server)
-npx http-server
-
-# Using PHP
-php -S localhost:8000
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # fill in OPENROUTER_API_KEY and JWT_SECRET_KEY
+uvicorn app.main:app --reload
 ```
 
-Then access:
-- Landing page: `http://localhost:8000/index.html`
-- Chat interface: `http://localhost:8000/chat.html`
-- Mobile view: `http://localhost:8000/mobile.html`
+Visit `http://localhost:8000/docs` for interactive API docs.
 
-### Option 3: Deploy to Web Hosting
-Upload all files to your web hosting provider:
-- FTP/SFTP upload
-- Git deployment
-- Web hosting control panel file manager
+## Deploying
 
-## 🔧 Customization
+The included `Dockerfile` runs as-is on any container platform with a
+free tier (Render, Fly.io, Railway). No paid/KYC-gated infra required —
+OpenRouter's key is pay-as-you-go and the vector store/database are both
+local files by default.
 
-### Change Colors
-Edit the CSS variables at the top of `styles.css`:
+## Next steps (roadmap)
 
-```css
-:root {
-  --primary-color: #5b7fff;      /* Change primary blue */
-  --accent-color: #00d9ff;       /* Change accent cyan */
-  --background-dark: #0a0e27;    /* Change dark background */
-  /* ... other colors ... */
-}
-```
-
-### Change Logo
-Replace the SVG code in the `<svg>` elements in HTML files with your own logo. The animated logo appears in:
-- Navigation bar
-- Hero section
-- Chat header
-- Mobile header
-
-### Modify Text Content
-All text is editable in the HTML files:
-- Headlines, descriptions, and feature text
-- Button labels
-- Navigation links
-- Footer content
-
-### Adjust Animations
-Modify animation properties in `styles.css`:
-- `logoGlow` - Change glow effect timing and intensity
-- `logoRotate` - Adjust rotation speed
-- `messageSlide` - Modify message entrance animation
-- `pulseGlow` - Change pulse effect
-
-## 📊 File Structure
-
-```
-NEURA-UI/
-├── index.html          # Landing page
-├── chat.html           # Chat interface
-├── mobile.html         # Mobile optimized view
-├── styles.css          # All styling
-└── README.md           # This file
-```
-
-## 🌐 Browser Support
-
-- Chrome/Chromium (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-- Mobile browsers (iOS Safari, Chrome Mobile)
-
-## ✨ Features Highlights
-
-✅ **Pure HTML & CSS** - No JavaScript required
-✅ **Dark Theme** - Professional dark UI with cyan accents
-✅ **Animated Logo** - Glow and rotation effects
-✅ **Fully Responsive** - Works on all screen sizes
-✅ **Modern Design** - Professional and clean aesthetic
-✅ **Fast Loading** - No dependencies or frameworks
-✅ **Accessible** - Semantic HTML structure
-✅ **Customizable** - Easy to modify colors and content
-
-## 📝 Notes
-
-- All files are static HTML and CSS
-- No backend server required
-- No database needed
-- No JavaScript dependencies
-- Can be hosted on any web server
-- Perfect for prototyping and UI design
-- Ready for integration with any backend
-
-## 🎯 Next Steps
-
-To add functionality, you can:
-1. Add JavaScript for interactivity
-2. Connect to a backend API
-3. Integrate with a real AI service
-4. Add user authentication
-5. Implement real-time messaging
-6. Add database storage
-
-## 📄 License
-
-This design is provided as-is for use in your NEURA AI project.
-
----
-
-**Created:** 2024
-**Version:** 1.0
-**Status:** Production Ready
+- [ ] Frontend web client (chat UI, file/voice upload)
+- [ ] Conversation history persistence (SQLAlchemy models + endpoints)
+- [ ] Video: extract keyframes and send to the vision model
+- [ ] PDF OCR fallback for scanned documents
+- [ ] Background memory summarization job (batch, not per-message)
+- [ ] Tests (`tests/`)
+- [ ] CI (GitHub Actions: lint + test on push)
