@@ -29,8 +29,10 @@ app = FastAPI(
 @app.on_event("startup")
 async def on_startup():
     # Creates the conversations/messages tables if they don't exist yet.
+    # Fine for SQLite/early development; a real production app would use
+    # a migration tool (Alembic) instead of create_all — worth learning
+    # once this project moves to Postgres.
     await init_db()
-
 
 app.add_middleware(
     CORSMiddleware,
