@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+anqa.db
+anqa_vector_store/
+uploads/
+.venv/
+venv/
+*.egg-info/
