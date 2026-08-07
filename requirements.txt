@@ -9,5 +9,6 @@ python-multipart==0.0.9
 sqlalchemy==2.0.35
 aiosqlite==0.20.0
 chromadb==0.5.5
+sentence-transformers  <-- أضف هذا السطر
 pypdf==5.0.1
 python-dotenv==1.0.1
