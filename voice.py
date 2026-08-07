@@ -1,52 +1,36 @@
 """
-app/services/voice.py
+app/routers/voice.py
 
-Provider calls for speech-to-text and text-to-speech. Written against
-the OpenAI-compatible Whisper/TTS API shape since that's the most
-widely mirrored interface — swapping to a different provider means
-editing only this file.
-
-Note: requires settings.stt_api_key / settings.tts_api_key to be set.
-If you don't want to pay for a separate STT/TTS key yet, this module
-is the one piece of Anqa you can leave disabled while everything else
-(chat, memory, file upload) works fully.
+Voice I/O for Anqa: upload an audio clip -> get a transcript (STT), or
+send text -> get back synthesized speech (TTS). The actual provider
+calls live in app/services/voice.py so this router stays provider-agnostic
+(swap Whisper for another STT engine without touching this file).
 """
 
-from collections.abc import AsyncGenerator
+from fastapi import APIRouter, Depends, UploadFile
+from fastapi.responses import StreamingResponse
 
-import httpx
+from app.core.security import get_current_user_id
+from app.models.schemas import TranscriptionOut, TTSRequest
+from app.services.voice import synthesize_speech, transcribe_audio
 
-from app.core.config import settings
-
-_STT_URL = "https://api.openai.com/v1/audio/transcriptions"
-_TTS_URL = "https://api.openai.com/v1/audio/speech"
-
-
-async def transcribe_audio(audio_bytes: bytes, filename: str) -> dict:
-    if not settings.stt_api_key:
-        raise RuntimeError("STT_API_KEY not configured — voice input is disabled")
-
-    headers = {"Authorization": f"Bearer {settings.stt_api_key}"}
-    files = {"file": (filename, audio_bytes)}
-    data = {"model": "whisper-1"}
-
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(_STT_URL, headers=headers, files=files, data=data)
-        resp.raise_for_status()
-        result = resp.json()
-
-    return {"text": result.get("text", ""), "language": result.get("language")}
+router = APIRouter(prefix="/voice", tags=["voice"])
 
 
-async def synthesize_speech(text: str, voice: str = "alloy") -> AsyncGenerator[bytes, None]:
-    if not settings.tts_api_key:
-        raise RuntimeError("TTS_API_KEY not configured — voice output is disabled")
+@router.post("/transcribe", response_model=TranscriptionOut)
+async def transcribe(
+    audio: UploadFile,
+    user_id: str = Depends(get_current_user_id),
+):
+    contents = await audio.read()
+    result = await transcribe_audio(contents, filename=audio.filename or "audio.wav")
+    return TranscriptionOut(**result)
 
-    headers = {"Authorization": f"Bearer {settings.tts_api_key}"}
-    payload = {"model": "tts-1", "voice": voice, "input": text}
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        async with client.stream("POST", _TTS_URL, headers=headers, json=payload) as resp:
-            resp.raise_for_status()
-            async for chunk in resp.aiter_bytes():
-                yield chunk
+@router.post("/speak")
+async def speak(
+    payload: TTSRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    audio_stream = synthesize_speech(payload.text, voice=payload.voice)
+    return StreamingResponse(audio_stream, media_type="audio/mpeg")
