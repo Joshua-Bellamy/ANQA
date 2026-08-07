@@ -2,6 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# تثبيت أدوات البناء الأساسية ومترجم C++ المطلوبة لمكتبة chroma
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies first (better layer caching on rebuilds)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
