@@ -8,7 +8,7 @@ routers. All real logic lives in app/routers, app/services, app/memory.
 Run locally with:
     uvicorn app.main:app --reload
 
-Deploy the same way on Render/Fly.io/Railway — see Dockerfile.
+Deploy the same way on FastAPI Cloud — see Dockerfile.
 """
 
 from fastapi import FastAPI
@@ -43,3 +43,8 @@ app.include_router(voice.router)
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "app": settings.app_name, "version": settings.app_version}
+
+
+# Serve the ANQA chat frontend (app/static/index.html) at "/".
+# Mounted LAST, after the routers above, so it never shadows /chat, /upload, /voice.
+app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
