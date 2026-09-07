@@ -1,6 +1,2 @@
-# linguist-vendored ignores files from language stats
-*.html linguist-vendored
-*.css linguist-vendored
-
-# Force Python override if needed
-*.py linguist-language=Python
+*.html linguist-detectable=false
+*.css linguist-detectable=false
