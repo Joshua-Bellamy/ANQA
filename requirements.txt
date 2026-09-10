@@ -12,3 +12,5 @@ chromadb==0.5.5
 sentence-transformers
 pypdf==5.0.1
 python-dotenv==1.0.1
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
