@@ -1,14 +1,8 @@
-<p align="center">
-  <img src="logo.png" alt="Anqa logo" width="160">
-</p>
+# Anqa
 
-<h1 align="center">Anqa</h1>
-
-<p align="center">
 A multimodal AI assistant with long-term memory — voice input/output, and
 support for images, videos, PDFs, and general file attachments — built on
 FastAPI and OpenRouter.
-</p>
 
 ## Why this architecture
 
@@ -95,3 +89,4 @@ local files by default.
 - [ ] Background memory summarization job (batch, not per-message)
 - [ ] Tests (`tests/`)
 - [ ] CI (GitHub Actions: lint + test on push)
+-
